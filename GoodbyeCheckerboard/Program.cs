@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+cheusing System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -15,35 +16,36 @@ namespace GoodbyeCheckerboard
             // Search for all .bmp recursively from current working directory.
             foreach ( var lFile in Directory.EnumerateFiles( ".", "*.bmp", SearchOption.AllDirectories ) )
             {
-                using ( var lBitmap = new Bitmap( lFile ) )
+                using ( var lOrig = new Bitmap( lFile ) )
                 {
-                    bool lModified = false;
-                    // Goal: Find a 'checkerboard'-like pixel (a solid pixel that has white pixels at top/bottom/left/right)
-                    // Then, make it white as well.
-                    if ( lBitmap.Height > 1 && lBitmap.Width > 1 )
+                    using ( var lBitmap = new Bitmap( lOrig.Width, lOrig.Height, PixelFormat.Format32bppArgb ) )
                     {
-                        for ( int y = 0; y < lBitmap.Height; y++ )
+                        using ( var lGraphics = Graphics.FromImage( lBitmap ) )
                         {
-                            for ( int x = 0; x < lBitmap.Width; x++ )
+                            lGraphics.DrawImage( lOrig, new Rectangle( 0, 0, lOrig.Width, lOrig.Height ) );
+                        }
+
+                        // Goal: Find a 'checkerboard'-like pixel (a solid pixel that has white pixels at top/bottom/left/right)
+                        // Then, make it white as well.
+                        if ( lBitmap.Height > 1 && lBitmap.Width > 1 )
+                        {
+                            for ( int y = 0; y < lBitmap.Height; y++ )
                             {
-                                // Find a solid pixel
-                                if ( IsCheckerboardSolidShadowPixel( lBitmap, x, y ) )
+                                for ( int x = 0; x < lBitmap.Width; x++ )
                                 {
-                                    // Make this pixel white
-                                    lBitmap.SetPixel( x, y, Color.White );
-                                    lModified = true;
+                                    // Find a solid pixel
+                                    if ( IsCheckerboardSolidShadowPixel( lBitmap, x, y ) )
+                                    {
+                                        // Make this pixel white
+                                        lBitmap.SetPixel( x, y, Color.White );
+                                    }
                                 }
                             }
                         }
-                    }
-                    if ( lModified )
-                    {
-                        Console.WriteLine( $"Saved: {lFile}" );
-                        lBitmap.Save( lFile );
-                    }
-                    else
-                    {
-                        Console.WriteLine( $"Skipped: {lFile}" );
+
+                        var lPngFile = Path.ChangeExtension( lFile, "png" );
+                        Console.WriteLine( $"Saved: {lPngFile}" );
+                        lBitmap.Save( lPngFile );
                     }
                 }
             }
@@ -66,7 +68,7 @@ namespace GoodbyeCheckerboard
                 bool lLeftPixelAlpha = lLeftPixel == Color.White.ToArgb();
 
                 int? lBottomPixel = null;
-                if ( y != ( aBitmap.Height - 1 ) ) aBitmap.GetPixel( x, y + 1 ).ToArgb();
+                if ( y != ( aBitmap.Height - 1 ) ) lBottomPixel = aBitmap.GetPixel( x, y + 1 ).ToArgb();
                 bool lBottomPixelAlpha = lBottomPixel == Color.White.ToArgb();
 
                 int? lRightPixel = null;
@@ -141,6 +143,11 @@ namespace GoodbyeCheckerboard
                         lResult = true;
                     }
                     else if ( lBottomPixelAlpha && !lBottomLeftPixelAlpha && !lBottomRightPixelAlpha )
+                    {
+                        lResult = true;
+                    }
+                    // We're on an edge
+                    else if ( y == 0 || y == aBitmap.Height - 1 || x == 0 || x == aBitmap.Width - 1 )
                     {
                         lResult = true;
                     }
